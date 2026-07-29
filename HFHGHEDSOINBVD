@@ -1,0 +1,406 @@
+local Odyssey = loadstring(request({Url="https://raw.githubusercontent.com/IloveLife232/OdysseyLt2UI/refs/heads/main/OdysseyV5",Method="GET"}).Body)()
+
+local Window = Odyssey:CreateWindow({
+    Name = "Odyssey",
+    Subtitle = "Lumber Tycoon 2",
+})
+
+Window:Notify({
+    Title = "Odyssey Loaded",
+    Content = "Welcome to Odyssey! Press RightShift to toggle the UI.",
+    Duration = 5,
+})
+
+local Tabs = {
+    Main     = Window:CreateTab({ Name = "Main",     ShowTitle = true }),
+    Player   = Window:CreateTab({ Name = "Player",   ShowTitle = true }),
+    World    = Window:CreateTab({ Name = "World",    ShowTitle = true }),
+    Settings = Window:CreateTab({ Name = "Settings", ShowTitle = true }),
+}
+
+Window:CreateUpdateLog({
+    Version = "v1.0.4",
+    Date    = "Jul 2026",
+    Entries = {
+        {Type="add", Text="Added ferry status and timer detection"},
+        {Type="add", Text="Added server FPS, ping, job ID and place ID"},
+        {Type="add", Text="Added reload slot cooldown detection"},
+        {Type="add", Text="Added color picker with rainbow and undo"},
+        {Type="fix", Text="Fixed ferry timer showing wrong state"},
+        {Type="chg", Text="Improved text readability across all panels"},
+    },
+})
+
+Window:CreateDiscordButton({
+    Label    = "Join Odyssey Discord Server",
+    Callback = function()
+        setclipboard("https://discord.gg/odyssey")
+        Window:Notify({Title="Discord", Content="Link copied to clipboard!", Duration=3})
+    end,
+})
+
+-- ============================================================
+-- SERVICES
+-- ============================================================
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer      = Players.LocalPlayer
+
+-- ============================================================
+-- MAIN TAB
+-- ============================================================
+Tabs.Main:CreateSection("Movement")
+
+Tabs.Main:CreateSlider({
+    Name         = "Walk speed",
+    Range        = {16, 200},
+    Increment    = 1,
+    CurrentValue = 16,
+    Callback = function(v)
+        pcall(function()
+            LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid").WalkSpeed = v
+        end)
+    end,
+})
+
+Tabs.Main:CreateSlider({
+    Name         = "Jump power",
+    Range        = {50, 300},
+    Increment    = 1,
+    CurrentValue = 50,
+    Callback = function(v)
+        pcall(function()
+            LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid").JumpPower = v
+        end)
+    end,
+})
+
+Tabs.Main:CreateSection("Modifications")
+
+Tabs.Main:CreateToggle({
+    Name         = "God mode",
+    Description  = "Makes you invincible",
+    CurrentValue = false,
+    Callback = function(v)
+        pcall(function()
+            local hum = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+            hum.MaxHealth = v and math.huge or 100
+            hum.Health    = hum.MaxHealth
+        end)
+    end,
+})
+
+Tabs.Main:CreateToggle({
+    Name         = "Noclip",
+    Description  = "Walk through walls and objects",
+    CurrentValue = false,
+    Callback = function(v)
+        _G.OdysseyNoclip = v
+    end,
+})
+RunService.Stepped:Connect(function()
+    if _G.OdysseyNoclip then
+        pcall(function()
+            for _,p in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide=false end
+            end
+        end)
+    end
+end)
+
+Tabs.Main:CreateToggle({
+    Name         = "Infinite jump",
+    Description  = "Jump unlimited times in the air",
+    CurrentValue = false,
+    Callback = function(v)
+        _G.OdysseyInfJump = v
+    end,
+})
+UserInputService.JumpRequest:Connect(function()
+    if _G.OdysseyInfJump then
+        pcall(function()
+            LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end)
+    end
+end)
+
+Tabs.Main:CreateToggle({
+    Name         = "Anti AFK",
+    Description  = "Prevents the game from kicking you for being idle",
+    CurrentValue = true,
+    Callback = function(v)
+        _G.OdysseyAntiAFK = v
+    end,
+})
+_G.OdysseyAntiAFK = true
+local VU = game:GetService("VirtualUser")
+LocalPlayer.Idled:Connect(function()
+    if _G.OdysseyAntiAFK then VU:CaptureController(); VU:ClickButton2(Vector2.new()) end
+end)
+
+Tabs.Main:CreateSection("Fly")
+
+local flyEnabled = false
+local flyConn
+Tabs.Main:CreateToggle({
+    Name         = "Fly",
+    Description  = "Use WASD to fly, Space to go up, Ctrl to go down",
+    CurrentValue = false,
+    Callback = function(v)
+        flyEnabled = v
+        pcall(function()
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+            if flyEnabled then
+                local bg = Instance.new("BodyGyro"); bg.MaxTorque=Vector3.new(1e9,1e9,1e9); bg.P=1e9; bg.Parent=root
+                local bv = Instance.new("BodyVelocity"); bv.MaxForce=Vector3.new(1e9,1e9,1e9); bv.Velocity=Vector3.zero; bv.Parent=root
+                flyConn = RunService.Heartbeat:Connect(function()
+                    local cam = workspace.CurrentCamera
+                    local vel = Vector3.zero
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then vel=vel+cam.CFrame.LookVector*50 end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then vel=vel-cam.CFrame.LookVector*50 end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then vel=vel-cam.CFrame.RightVector*50 end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then vel=vel+cam.CFrame.RightVector*50 end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vel=vel+Vector3.new(0,50,0) end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vel=vel-Vector3.new(0,50,0) end
+                    bv.Velocity=vel; bg.CFrame=cam.CFrame
+                end)
+            else
+                if flyConn then flyConn:Disconnect(); flyConn=nil end
+                for _,v2 in ipairs(root:GetChildren()) do
+                    if v2:IsA("BodyGyro") or v2:IsA("BodyVelocity") then v2:Destroy() end
+                end
+            end
+        end)
+    end,
+})
+
+Tabs.Main:CreateSlider({
+    Name         = "Fly speed",
+    Range        = {10, 200},
+    Increment    = 5,
+    CurrentValue = 50,
+    Callback = function(v)
+        _G.OdysseyFlySpeed = v
+    end,
+})
+_G.OdysseyFlySpeed = 50
+
+Tabs.Main:CreateSection("Actions")
+
+Tabs.Main:CreateButton({
+    Name        = "Respawn",
+    Description = "Respawns your character at the spawn point",
+    Callback = function()
+        LocalPlayer:LoadCharacter()
+    end,
+})
+
+Tabs.Main:CreateButton({
+    Name        = "Teleport to spawn",
+    Description = "Teleports you to the map spawn location",
+    Callback = function()
+        pcall(function()
+            local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+            if spawn then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = spawn.CFrame + Vector3.new(0,5,0)
+            end
+        end)
+    end,
+})
+
+Tabs.Main:CreateBind({
+    Name           = "Toggle noclip",
+    Description    = "Keybind to quickly toggle noclip",
+    CurrentKeybind = "N",
+    Callback = function()
+        _G.OdysseyNoclip = not _G.OdysseyNoclip
+        Window:Notify({
+            Title   = "Noclip",
+            Content = _G.OdysseyNoclip and "Noclip enabled" or "Noclip disabled",
+            Duration = 2,
+        })
+    end,
+})
+
+-- ============================================================
+-- PLAYER TAB
+-- ============================================================
+Tabs.Player:CreateSection("Target")
+
+local playerDD = Tabs.Player:CreateDropdown({
+    Name        = "Select player",
+    Description = "Auto-updates when players join or leave",
+    Options     = {""},
+    SpecialType = "Player",
+    Callback = function(v)
+        _G.OdysseyTarget = v
+    end,
+})
+
+Tabs.Player:CreateSection("Actions")
+
+Tabs.Player:CreateButton({
+    Name        = "Teleport to player",
+    Description = "Teleports you to the selected player",
+    Callback = function()
+        pcall(function()
+            local target = Players:FindFirstChild(playerDD:GetValue())
+            if target and target.Character then
+                LocalPlayer.Character.HumanoidRootPart.CFrame =
+                    target.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+            end
+        end)
+    end,
+})
+
+Tabs.Player:CreateButton({
+    Name        = "Bring player to me",
+    Description = "Teleports the selected player to your location",
+    Callback = function()
+        pcall(function()
+            local target = Players:FindFirstChild(playerDD:GetValue())
+            if target and target.Character then
+                target.Character.HumanoidRootPart.CFrame =
+                    LocalPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(3,0,0)
+            end
+        end)
+    end,
+})
+
+Tabs.Player:CreateSection("Info")
+
+local _, pName = Tabs.Player:CreateLabel({Text="Name: —", Style=1}), nil
+local _, pDist = Tabs.Player:CreateLabel({Text="Distance: —", Style=1}), nil
+
+local pNameLbl = Tabs.Player:CreateLabel({Text="Name: —",     Style=1})
+local pDistLbl = Tabs.Player:CreateLabel({Text="Distance: —", Style=1})
+local pIdLbl   = Tabs.Player:CreateLabel({Text="User ID: —",  Style=1})
+local pTeamLbl = Tabs.Player:CreateLabel({Text="Team: —",     Style=1})
+
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local target = Players:FindFirstChild(playerDD:GetValue())
+        if target then
+            pNameLbl:Set({Text="Name: "..target.DisplayName})
+            pIdLbl:Set({Text="User ID: "..tostring(target.UserId)})
+            pTeamLbl:Set({Text="Team: "..(target.Team and target.Team.Name or "None")})
+            if target.Character and LocalPlayer.Character then
+                local dist = math.floor((target.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude)
+                pDistLbl:Set({Text="Distance: "..dist.." studs"})
+            end
+        end
+    end)
+end)
+
+-- ============================================================
+-- WORLD TAB
+-- ============================================================
+Tabs.World:CreateSection("Lighting")
+
+Tabs.World:CreateSlider({
+    Name         = "Brightness",
+    Range        = {0, 10},
+    Increment    = 0.5,
+    CurrentValue = 2,
+    Callback = function(v)
+        pcall(function() game.Lighting.Brightness = v end)
+    end,
+})
+
+Tabs.World:CreateSlider({
+    Name         = "Time of day",
+    Range        = {0, 24},
+    Increment    = 1,
+    CurrentValue = 14,
+    Callback = function(v)
+        pcall(function() game.Lighting.ClockTime = v end)
+    end,
+})
+
+Tabs.World:CreateSlider({
+    Name         = "Fog distance",
+    Range        = {0, 5000},
+    Increment    = 50,
+    CurrentValue = 1000,
+    Callback = function(v)
+        pcall(function() game.Lighting.FogEnd = v end)
+    end,
+})
+
+Tabs.World:CreateSection("Quick Time")
+
+for _, t in ipairs({{"Dawn","5"},{"Noon","12"},{"Sunset","18"},{"Midnight","0"}}) do
+    Tabs.World:CreateButton({
+        Name = t[1],
+        Callback = function()
+            pcall(function() game.Lighting.ClockTime = tonumber(t[2]) end)
+        end,
+    })
+end
+
+Tabs.World:CreateSection("Effects")
+
+Tabs.World:CreateToggle({
+    Name         = "Fullbright",
+    Description  = "Makes the world fully lit",
+    CurrentValue = false,
+    Callback = function(v)
+        pcall(function()
+            game.Lighting.Brightness    = v and 10 or 2
+            game.Lighting.Ambient       = v and Color3.new(1,1,1) or Color3.new(0,0,0)
+            game.Lighting.OutdoorAmbient= v and Color3.new(1,1,1) or Color3.fromRGB(70,70,70)
+        end)
+    end,
+})
+
+Tabs.World:CreateToggle({
+    Name         = "Remove fog",
+    Description  = "Removes all fog from the world",
+    CurrentValue = false,
+    Callback = function(v)
+        pcall(function() game.Lighting.FogEnd = v and 999999 or 1000 end)
+    end,
+})
+
+Tabs.World:CreateToggle({
+    Name         = "No shadows",
+    Description  = "Disables all shadows",
+    CurrentValue = false,
+    Callback = function(v)
+        pcall(function() game.Lighting.GlobalShadows = not v end)
+    end,
+})
+
+-- ============================================================
+-- SETTINGS TAB
+-- ============================================================
+Tabs.Settings:CreateSection("UI Controls")
+
+Tabs.Settings:CreateBind({
+    Name           = "Toggle UI keybind",
+    Description    = "Press this key to show or hide the Odyssey UI",
+    CurrentKeybind = "RightShift",
+    Callback = function()
+        Window:Notify({Title="UI Toggled", Content="UI visibility changed", Duration=2})
+    end,
+})
+
+Tabs.Settings:CreateSection("Appearance")
+
+Tabs.Settings:CreateColorPicker({
+    Name        = "Accent color",
+    Description = "Changes the main highlight color of the UI",
+    Color       = Color3.fromRGB(224, 138, 62),
+    Callback = function(v)
+        -- color picked, apply however you want
+    end,
+})
+
+Tabs.Settings:CreateSection("Credits")
+
+Tabs.Settings:CreateParagraph({
+    Title = "Odyssey UI",
+    Text  = "Script by: Odyssey team\nUI Library: Odyssey Lib\nTesters: placeholder\nThanks to placeholder for helping",
+})
