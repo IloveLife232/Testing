@@ -20,8 +20,9 @@ Window:CreateUpdateLog({
         {Type="add", Text="Reload slot cooldown detection"},
         {Type="add", Text="Executor identifier on character panel"},
         {Type="add", Text="Server version and age on server panel"},
-        {Type="fix", Text="Fixed ferry timer showing wrong state"},
         {Type="chg", Text="Tabs now use emoji icons"},
+        {Type="chg", Text="New Uis, New themes"},
+        {Type="fix", Text="Fix Ui Lag"},
     },
 })
 
