@@ -1,4 +1,3 @@
-
 local Odyssey = loadstring(request({Url="https://raw.githubusercontent.com/IloveLife232/OdysseyLt2UI/refs/heads/main/OdysseyV5",Method="GET"}).Body)()
 
 local Window = Odyssey:CreateWindow({
@@ -104,15 +103,6 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
-Main:CreateToggle({
-    Name="Anti AFK", CurrentValue=true,
-    Description="Prevents the game from kicking you for being idle",
-    Tooltip="Keeps you active so you don't get kicked",
-    Callback=function(v) _G.OdysseyAntiAFK=v end,
-})
-_G.OdysseyAntiAFK=true
-local VU=game:GetService("VirtualUser")
-LocalPlayer.Idled:Connect(function() if _G.OdysseyAntiAFK then VU:CaptureController(); VU:ClickButton2(Vector2.new()) end end)
 
 Main:CreateSection("Fly")
 
